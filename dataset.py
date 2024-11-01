@@ -20,10 +20,10 @@ class dataset(Dataset):
                     img = cv2.imread(os.path.join(f_path, f_ls[i*n_subframe+j]))
                     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
                     if j == 0:
-                        subexp = torch.zeros(n_subframe, *img.shape)
-                    subexp[j, ...] = torch.from_numpy(img).float()
+                        subexp = torch.zeros(n_subframe, 1, *img.shape)
+                    subexp[j, 0, ...] = torch.from_numpy(img).float()
 
-                subexp = subexp.unsqueeze(0).unsqueeze(0)
+                subexp = subexp.unsqueeze(0) # --.unsqueeze(0)
                 self.subexp_ls += [subexp]
         self.subexp_ls = torch.cat(self.subexp_ls, dim=0)
 
@@ -32,13 +32,13 @@ class dataset(Dataset):
             print (dir_ls)
 
     def __len__(self):
-        return self.subexp_ls[0]
-    def __getitem(self, idx):
+        return self.subexp_ls.shape[0]
+    def __getitem__(self, idx):
         return self.subexp_ls[idx]
 
 if DEBUG:
     train_set = dataset(ds_dir="./dataset/train/",
                         n_subframe=8)
-    test_set = dataset(ds_dir="./dataset/test/",
-                       n_subframe=8)
+    # test_set = dataset(ds_dir="./dataset/test/",
+    #                    n_subframe=8)
     quit()
