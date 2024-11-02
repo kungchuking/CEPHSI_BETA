@@ -8,7 +8,7 @@ from tqdm import tqdm
 DEBUG = False
 
 class dataset(Dataset):
-    def __init__(self, ds_dir, n_subframe):
+    def __init__(self, ds_dir, n_subframe, patch_size=[64, 64]):
         dir_ls = sorted(os.listdir(ds_dir))
         print ("[INFO] Loading dataset from directories: ", dir_ls)
         self.subexp_ls = []
@@ -19,11 +19,22 @@ class dataset(Dataset):
                 for j in range(n_subframe):
                     img = cv2.imread(os.path.join(f_path, f_ls[i*n_subframe+j]))
                     img = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-                    if j == 0:
-                        subexp = torch.zeros(n_subframe, 1, *img.shape)
-                    subexp[j, 0, ...] = torch.from_numpy(img).float()
+                    
+                    # -- Separate the whole image into 64x64 tiles
+                    R = img.shape[0] // patch_size[0]
+                    C = img.shape[1] // patch_size[1]
+                    for m in range(R):
+                        for n in range(C):
+                            if j == 0 and m == 0 and n == 0:
+                                # -- Initialize subexp in the first iteration
+                                # -- There is a total of n_subframe * R * C images
+                                # -- subexp = torch.zeros(n_subframe * R * C, 1, *img.shape)
+                                subexp = torch.zeros(R * C, n_subframe, 1, *patch_size)
+                            subexp[m*C+n, j, 0, ...] = torch.from_numpy(img[m*patch_size[0]:m*patch_size[0]+patch_size[0], n*patch_size[1]:n*patch_size[1]+patch_size[1]]).float()
 
-                subexp = subexp.unsqueeze(0) # --.unsqueeze(0)
+                    # -- print ("[INFO] subexp.shape: ", subexp.shape)
+
+                # -- subexp = subexp.unsqueeze(0) # --.unsqueeze(0)
                 self.subexp_ls += [subexp]
         self.subexp_ls = torch.cat(self.subexp_ls, dim=0)
 
