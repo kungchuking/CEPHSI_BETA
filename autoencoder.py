@@ -110,7 +110,11 @@ class autoencoder(nn.Module):
             nn.Conv2d(out_channels * frame_n, out_channels * frame_n, kernel_size=3, stride=1, padding=1),
             nn.Sigmoid())
     def forward(self, ce_blur, ce_code):
+        device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
+        ce_blur = ce_blur.to(device)
+        ce_code = ce_code.to(device)
+        
         # -- print ("[INFO] ce_blur.shape: ", ce_blur.shape)
         # -- print ("[INFO] ce_code.shape: ", ce_code.shape)
 
@@ -119,6 +123,8 @@ class autoencoder(nn.Module):
             for j in range(ce_code.shape[2]):
                 for k in range(ce_code.shape[5]):
                     ce_code_resize[:, i * ce_code.shape[2] * ce_code.shape[5] + j * ce_code.shape[5] + k, ...] = ce_code[:, i, j, :, :, k]
+
+        ce_code_resize = ce_code_resize.to(device)
         # -- Mask Encoder
         y = self.mask_enc1(ce_code_resize)
         y = self.mask_enc2(y)
@@ -131,7 +137,7 @@ class autoencoder(nn.Module):
         # -- print ("x.shape: ", x.shape)
         # -- quit()
 
-        z = torch.zeros(x.shape[0], x.shape[1] * 2, x.shape[2], x.shape[3])
+        z = torch.zeros(x.shape[0], x.shape[1] * 2, x.shape[2], x.shape[3]).to(device)
         z[:, :x.shape[1], ...] = x
         z[:, x.shape[1]:, ...] = y
 

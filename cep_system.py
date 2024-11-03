@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 from cep_enc import cep_enc
 
@@ -20,6 +21,8 @@ class cep_system(nn.Module):
         self.frame_n = frame_n
         self.patch_size = patch_size
 
+        self.device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+
         self.cep_enc = cep_enc(
             sigma_range=sigma_range,
             ce_code_n=ce_code_n,
@@ -29,17 +32,21 @@ class cep_system(nn.Module):
             patch_size=patch_size,
             # -- Added by Chu King on OCT 29, 2024 for grayscale images and pixelwise CEP.
             in_channels=in_channels,
-            n_cam=n_cam)
+            n_cam=n_cam).to(self.device)
 
         self.cep_dec = autoencoder(
             in_channels=in_channels,
             out_channels=out_channels,
             frame_n = self.frame_n,
             n_feats=4,
-            n_cam=n_cam)
+            n_cam=n_cam).to(self.device)
 
     def forward(self, frames):
         ce_blur_img_noisy, ce_code_up, ce_blur_img = self.cep_enc(frames)
+
+        ce_blur_img_noisy = ce_blur_img_noisy.to(self.device)
+        ce_code_up = ce_code_up.to(self.device)
+        ce_blur_img = ce_blur_img.to(self.device)
 
         output = self.cep_dec(ce_blur=ce_blur_img_noisy, ce_code=ce_code_up)
 
