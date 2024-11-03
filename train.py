@@ -51,6 +51,10 @@ print ("[INFO] len(test_set): ", len(test_set), file=fd)
 optimizer = torch.optim.Adam(model.parameters(), lr=0.01)
 scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.5)
 
+# for param_tensor in model.state_dict():
+#     print ("{}: {}".format(param_tensor, model.state_dict()[param_tensor].size()))
+# quit()
+
 for epoch in range(n_epoch):
     print ("[INFO] ---- Epoch {} ----".format(epoch), file=fd)
 
