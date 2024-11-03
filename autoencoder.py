@@ -12,6 +12,7 @@ class autoencoder(nn.Module):
         self.frame_n = frame_n
         self.in_channels = in_channels
         # -- Mask Encoder
+        # -- 512 x 512
         self.mask_enc1 = nn.Sequential(
             nn.Conv2d(in_channels * 1 * n_cam * frame_n, 8 * n_feats, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(8 * n_feats),
@@ -22,6 +23,7 @@ class autoencoder(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         # -- Image Encoder
+        # -- 512 x 512
         self.img_enc1 = nn.Sequential(
             nn.Conv2d(in_channels * 2 * n_cam, 8 * n_feats, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(8 * n_feats),
@@ -32,6 +34,7 @@ class autoencoder(nn.Module):
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
         # -- Aggregate Encoder
+        # -- 256 x 256
         self.enc3 = nn.Sequential(
             nn.Conv2d(16 * n_feats, 16 * n_feats, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(16 * n_feats),
@@ -41,6 +44,7 @@ class autoencoder(nn.Module):
             nn.BatchNorm2d(16 * n_feats),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
+        # -- 128 x 128
         self.enc5 = nn.Sequential(
             nn.Conv2d(16 * n_feats, 32 * n_feats, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(32 * n_feats),
@@ -50,34 +54,58 @@ class autoencoder(nn.Module):
             nn.BatchNorm2d(32 * n_feats),
             nn.ReLU(),
             nn.MaxPool2d(kernel_size=2, stride=2))
+        # -- 64 x 64
+        self.enc7 = nn.Sequential(
+            nn.Conv2d(32 * n_feats, 64 * n_feats, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64 * n_feats),
+            nn.ReLU())
+        self.enc8 = nn.Sequential(
+            nn.Conv2d(64 * n_feats, 64 * n_feats, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64 * n_feats),
+            nn.ReLU(),
+            nn.MaxPool2d(kernel_size=2, stride=2))
         # -- Decoder
-        self.dec1 = nn.Sequential(
+        # -- 32 x 32
+        self.dec8 = nn.Sequential(
+            nn.Conv2d(64 * n_feats, 64* n_feats, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(64 * n_feats),
+            nn.ReLU())
+        self.dec7 = nn.Sequential(
+            nn.Conv2d(64 * n_feats, 32 * n_feats, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(32 * n_feats),
+            nn.ReLU(),
+            nn.UpsamplingNearest2d(scale_factor=2))
+        # -- 64 x 64 
+        self.dec6 = nn.Sequential(
             nn.Conv2d(32 * n_feats, 32* n_feats, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(32 * n_feats),
             nn.ReLU())
-        self.dec2 = nn.Sequential(
+        self.dec5 = nn.Sequential(
             nn.Conv2d(32 * n_feats, 16 * n_feats, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(16 * n_feats),
             nn.ReLU(),
             nn.UpsamplingNearest2d(scale_factor=2))
-        self.dec3 = nn.Sequential(
+        # -- 128 x 128
+        self.dec4 = nn.Sequential(
             nn.Conv2d(16 * n_feats, 16 * n_feats, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(16 * n_feats),
             nn.ReLU())
-        self.dec4 = nn.Sequential(
-            nn.Conv2d(16 * n_feats, 8 * n_feats, kernel_size=3, stride=1, padding=1),
-            nn.BatchNorm2d(8 * n_feats),
+        self.dec3 = nn.Sequential(
+            nn.Conv2d(16 * n_feats, 16 * n_feats, kernel_size=3, stride=1, padding=1),
+            nn.BatchNorm2d(16 * n_feats),
             nn.ReLU(),
             nn.UpsamplingNearest2d(scale_factor=2))
-        self.dec5 = nn.Sequential(
-            nn.Conv2d(8 * n_feats, 8 * n_feats, kernel_size=3, stride=1, padding=1),
+        # -- 256 x 256
+        self.dec2 = nn.Sequential(
+            nn.Conv2d(16 * n_feats, 8 * n_feats, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(8 * n_feats),
             nn.ReLU())
-        self.dec6 = nn.Sequential(
+        self.dec1 = nn.Sequential(
             nn.Conv2d(8 * n_feats, out_channels * frame_n, kernel_size=3, stride=1, padding=1),
             nn.BatchNorm2d(out_channels * frame_n),
             nn.ReLU(),
             nn.UpsamplingNearest2d(scale_factor=2))
+        # -- 512 x 512
         self.sigmoid = nn.Sequential(
             nn.Conv2d(out_channels * frame_n, out_channels * frame_n, kernel_size=3, stride=1, padding=1),
             nn.Sigmoid())
@@ -108,17 +136,21 @@ class autoencoder(nn.Module):
         z[:, x.shape[1]:, ...] = y
 
         # -- Merging ce_blur and ce_code
-        x = self.enc3(z)
-        x = self.enc4(x)
-        x = self.enc5(x)
-        x = self.enc6(x)
+        x1 = self.enc3(z)
+        x2 = self.enc4(x1)
+        x3 = self.enc5(x2)
+        x4 = self.enc6(x3)
+        x5 = self.enc7(x4)
+        x6 = self.enc8(x5)
         # -- Decoder
-        x = self.dec1(x)
-        x = self.dec2(x)
-        x = self.dec3(x)
-        x = self.dec4(x)
-        x = self.dec5(x)
-        x = self.dec6(x)
+        x7 = self.dec8(x6)
+        x8 = self.dec7(x7)
+        x9 = self.dec6(x8 + x4) # -- 64 x 64
+        xa = self.dec5(x9)
+        xb = self.dec4(xa + x2) # -- 128 x 128
+        xc = self.dec3(xb)
+        xd = self.dec2(xc + z)  # -- 256 x 256 
+        xe = self.dec1(xd)
         # -- Sigmoid
-        x = self.sigmoid(x)
-        return torch.reshape(x, (-1, self.frame_n, self.in_channels, *ce_blur.shape[-2:]))
+        xf = self.sigmoid(xe)
+        return torch.reshape(xf, (-1, self.frame_n, self.in_channels, *ce_blur.shape[-2:]))

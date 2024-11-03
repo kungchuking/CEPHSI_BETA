@@ -16,9 +16,10 @@ MSELoss = loss.MSELoss()
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 torch.backends.cudnn.benchmark = True
 
-n_rpt   = 1000 # -- Number of iterations before reporting the loss, PSNR, and other metrics 
-n_epoch = 1000 # -- Total number of epochs
-n_img   = 10   # -- Number of epochs before saving images for inspection
+n_rpt      = 1000 # -- Number of iterations before reporting the loss, PSNR, and other metrics 
+n_epoch    = 1000 # -- Total number of epochs
+n_img      = 10   # -- Number of epochs before saving images for inspection
+patch_size = [512, 512]
 
 # -- The Model
 model = cep_system(sigma_range=[0, 1e-12],
@@ -28,7 +29,7 @@ model = cep_system(sigma_range=[0, 1e-12],
                    n_cam=2,
                    in_channels=1,
                    out_channels=1,
-                   patch_size=[256, 256])
+                   patch_size=patch_size)
 
 params = {
         "batch_size": 8,
@@ -36,12 +37,12 @@ params = {
         "num_workers": 1
         }
 
-train_set = dataset(ds_dir="./dataset/train/", n_subframe=8, patch_size=[256, 256])
+train_set = dataset(ds_dir="./dataset/train/", n_subframe=8, patch_size=patch_size)
 train_gen = torch.utils.data.DataLoader(train_set, **params)
 
 print ("[INFO] len(train_set): ", len(train_set), file=fd)
 
-test_set = dataset(ds_dir="./dataset/test/", n_subframe=8, patch_size=[256, 256])
+test_set = dataset(ds_dir="./dataset/test/", n_subframe=8, patch_size=patch_size)
 test_gen = torch.utils.data.DataLoader(test_set, **params)
 
 print ("[INFO] len(test_set): ", len(test_set), file=fd)
@@ -70,20 +71,30 @@ for epoch in range(n_epoch):
         # -- target == data (i.e. autoencoder)
         output, ce_blur, _, target, reblur = model(data)
 
-        # -- Iterate over each batch and each subframe to calculate the average PSNR of the current batch.
-        run_psnr = .0
-        for m in range(output.shape[0]):
-            for n in range(output.shape[1]):
-                run_psnr += psnr(output[m, n, 0, ...].detach().numpy(), target[m, n, 0, ...].detach().numpy())
-        psnr_avg = run_psnr / float(output.shape[0] * output.shape[1])
-
         # -- Compute the loss
         output_ = torch.flatten(output, end_dim=1)
         target_ = torch.flatten(target, end_dim=1)
         ce_blur_ = torch.flatten(ce_blur, end_dim=1)
         reblur_ = torch.flatten(reblur, end_dim=1)
 
-        loss = MSELoss(output_, target_) + 0.2 * MSELoss(ce_blur_, reblur_) + 0.05 * TVLoss(output)
+        loss_ml = MSELoss(output_, target_)
+        loss_reblur = 0.2 * MSELoss(ce_blur_, reblur_)
+        loss_tv = 0.2 * TVLoss(output)
+        loss = loss_ml + loss_reblur + loss_tv
+
+        # print ("[INFO] loss_ml: ", loss_ml)
+        # print ("[INFO] loss_reblur: ", loss_reblur)
+        # print ("[INFO] loss_tv: ", loss_tv)
+
+        # -- Clamp the output prior to computing the PSNR
+        output = torch.clamp(output, min=0., max=1.)
+
+        # -- Iterate over each batch and each subframe to calculate the average PSNR of the current batch.
+        run_psnr = .0
+        for m in range(output.shape[0]):
+            for n in range(output.shape[1]):
+                run_psnr += psnr(output[m, n, 0, ...].detach().numpy(), target[m, n, 0, ...].detach().numpy())
+        psnr_avg = run_psnr / float(output.shape[0] * output.shape[1])
 
         # -- Compute gradients
         loss.backward()
@@ -126,6 +137,9 @@ for epoch in range(n_epoch):
             # -- Make predictions
             # -- target == data (i.e. autoencoder)
             output, ce_blur, _, target, reblur = model(data)
+
+            # -- Clamp the output prior to computing the PSNR
+            output = torch.clamp(output, min=0., max=1.)
 
             # -- Iterate over each batch and each subframe to calculate the average PSNR of the current batch.
             run_psnr = .0

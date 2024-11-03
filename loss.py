@@ -36,5 +36,5 @@ class TVLoss(nn.Module):
                 for k in range(output.shape[2]):
                     run_loss += torch.sum(torch.norm(grad_fn(output[i, j, k, ...]), dim=0))
 
-        denom = float(output.shape[0] * output.shape[1] * output.shape[2])
+        denom = float(output.shape[0] * output.shape[1] * output.shape[2] * output.shape[3] * output.shape[4])
         return run_loss / denom
