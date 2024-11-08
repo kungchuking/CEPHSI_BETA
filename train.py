@@ -25,10 +25,11 @@ if __name__ == "__main__":
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
     torch.backends.cudnn.benchmark = True
     
-    n_rpt      = 1000 # -- Number of iterations before reporting the loss, PSNR, and other metrics 
-    n_epoch    = 5000 # -- Total number of epochs
-    n_img      = 100  # -- Number of epochs before saving images for inspection
+    n_rpt      = 1000       # -- Number of iterations before reporting the loss, PSNR, and other metrics 
+    n_epoch    = 5000       # -- Total number of epochs
+    n_img      = 100        # -- Number of epochs before saving images for inspection
     patch_size = [512, 512]
+    n_subexp   = 16         # -- Number of subexposure per frame
     
     # -- SOme metrics to help evaluate the performance of the model.
     # -- The PSNRs of the last epoch
@@ -40,8 +41,8 @@ if __name__ == "__main__":
     
     # -- The Model
     model = cep_system(sigma_range=[0, 1e-12],
-                       ce_code_n=8,
-                       frame_n=8,
+                       ce_code_n=n_subexp,
+                       frame_n=n_subexp,
                        opt_cecode=True,
                        n_cam=2,
                        in_channels=1,
@@ -54,14 +55,16 @@ if __name__ == "__main__":
             "num_workers": 1
             }
     
-    train_set = dataset(ds_dir="./dataset/train/", n_subframe=8, patch_size=patch_size)
+    train_set = dataset(ds_dir="./dataset/train/", n_subframe=n_subexp, patch_size=patch_size)
     train_gen = torch.utils.data.DataLoader(train_set, **params)
     
+    print ("[INFO] len(train_set): ", len(train_set))
     print ("[INFO] len(train_set): ", len(train_set), file=fd)
     
-    test_set = dataset(ds_dir="./dataset/test/", n_subframe=8, patch_size=patch_size)
+    test_set = dataset(ds_dir="./dataset/test/", n_subframe=n_subexp, patch_size=patch_size)
     test_gen = torch.utils.data.DataLoader(test_set, **params)
     
+    print ("[INFO] len(test_set): ", len(test_set))
     print ("[INFO] len(test_set): ", len(test_set), file=fd)
     
     # -- optimizer = torch.optim.SGD(model.parameters(), lr=1e-5, momentum=0.9)
@@ -136,7 +139,7 @@ if __name__ == "__main__":
         # -- Save some output images for inspectin once every n_img iterations
         if epoch % n_img == 0 and epoch != 0:
             for n in range(output.shape[1]):
-                plt.imshow(output[0, n, 0, ...].detach().numpy(), cmap="gray")
+                plt.imshow(output[0, n, 0, ...].detach().cpu().numpy(), cmap="gray")
                 plt.savefig("./results/train_epoch_{}_n_{}.png".format(epoch, n))
     
         """
@@ -167,7 +170,7 @@ if __name__ == "__main__":
                 run_psnr = .0
                 for m in range(output.shape[0]):
                     for n in range(output.shape[1]):
-                        run_psnr += psnr(output[m, n, 0, ...].detach().numpy(), target[m, n, 0, ...].detach().numpy())
+                        run_psnr += psnr(output[m, n, 0, ...].detach().cpu().numpy(), target[m, n, 0, ...].detach().cpu().numpy())
                 psnr_avg = run_psnr / float(output.shape[0] * output.shape[1])
     
                 run_psnr_avg += psnr_avg
@@ -181,7 +184,7 @@ if __name__ == "__main__":
         # -- Save some output images for inspection once every n_img iterations
         if epoch % n_img == 0 and epoch != 0:
             for n in range(output.shape[1]):
-                plt.imshow(output[0, n, 0, ...].detach().numpy(), cmap="gray")
+                plt.imshow(output[0, n, 0, ...].detach().cpu().numpy(), cmap="gray")
                 plt.savefig("./results/valid_epoch_{}_n_{}.png".format(epoch, n))
     
         # -- Save the parameters as checkpoints if they yield higher PSNRs than those of previous epochs.
